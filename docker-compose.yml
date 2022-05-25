@@ -1,0 +1,124 @@
+version: '3'
+
+services:
+  astro_question_nginx:
+    container_name: astro_question_nginx
+#    image:          nginx:alpine
+    image:          nginx:1.18
+#    restart:        on-failure
+    working_dir:    ${PHP_APP_DIR}
+    volumes:
+      - .:${PHP_APP_DIR}
+      - ./docker/nginx/minify-url-api.conf:/etc/nginx/conf.d/minify-url-api.conf:rw
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:rw
+#      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:rw
+#      - ./docker/ssl:/etc/nginx/ssl:ro
+#      - nginx-log:/srv/log/nginx
+    ports:
+      - ${NGINX_EXPOSED_PORT}:80
+    links:
+      - astro_question_api
+
+  astro_question_api:
+    container_name: astro_question_api
+    build:
+      context: ./docker/php
+      args:
+        - USER_ID=${USER_ID}
+        - GROUP_ID=${GROUP_ID}
+        - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+        - UID_USER=${UID_USER}
+        - APP_ENV=${APP_ENV}
+        - APP_SECRET=${APP_SECRET}
+        - XDEBUG_MODE=${XDEBUG_MODE}
+        - XDEBUG_CONFIG=client_host=${XDEBUG_REMOTE_HOST}
+    restart:        on-failure
+    working_dir:    ${PHP_APP_DIR}
+    volumes:
+      - .:${PHP_APP_DIR}
+    environment:
+      - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+      - WEB_USER=${WEB_USER}
+      - WEB_GROUP=${WEB_GROUP}
+      - UID_USER=${UID_USER}
+      - APP_ENV=${APP_ENV}
+      - XDEBUG_CONFIG=remote_host=${XDEBUG_REMOTE_HOST}
+
+#  astro_question_composer:
+#    container_name: astro_question_composer
+#    build:
+#      context: ./docker/php
+#      args:
+#        - WEB_USER=${WEB_USER}
+#        - WEB_GROUP=${WEB_GROUP}
+#        - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+#        - UID_USER=${UID_USER}
+#        - PHP_APP_DIR=${PHP_APP_DIR}
+#    working_dir:    ${PHP_APP_DIR}
+#    user:           ${UID_USER}:${UID_USER}
+#    volumes:
+#      - .:${PHP_APP_DIR}
+#    environment:
+#      - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+#      - WEB_USER=${WEB_USER}
+#      - WEB_GROUP=${WEB_GROUP}
+#    command:        bash docker/autoInstall.sh
+  astro_question_elk:
+    container_name: astro_question_elk
+    image:          willdurand/elk
+    ports:
+      - ${ELK_EXPOSED_PORT}:80
+    volumes:
+      - ./docker/elk/logstash:/etc/logstash
+      - ./docker/elk/logstash/patterns:/opt/logstash/patterns
+      - ./var/log:/log/symfony-log
+      - nginx-log:/log/nginx-log
+
+  astro_question_redis:
+    container_name: astro_question_redis
+    image:          redis:5.0.5-alpine
+    command: redis-server --requirepass ""
+    ports:
+        - 6379:6379
+
+  astro_question_mysql:
+    container_name: astro_question_mysql
+    image:          mysql
+    command:        --default-authentication-plugin=mysql_native_password
+    restart:        always
+    environment:
+        - MYSQL_ROOT_PASSWORD=${ROOT_PASS}
+        - MYSQL_DATABASE=${DATABASE_NAME}
+    ports:
+      - ${MYSQL_EXPOSED_PORT}:3306
+    volumes:
+      - ./docker/mysql/init/:/docker-entrypoint-initdb.d
+      - ./docker/mysql/datbases:/var/lib/mysql
+
+  astro_question_rabbitmq:
+    container_name: astro_question_rabbitmq
+    build:
+      context: ./docker/rabbitmq
+    ports:
+      - ${RABBITMQ_EXPOSED_PORT}:15672
+volumes:
+  nginx-log:
+#services:
+####> doctrine/doctrine-bundle ###
+#  database:
+#    image: pocd stgres:${POSTGRES_VERSION:-13}-alpine
+#    environment:
+#      POSTGRES_DB: ${POSTGRES_DB:-app}
+#      # You should definitely change the password in production
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe}
+#      POSTGRES_USER: ${POSTGRES_USER:-symfony}
+#    volumes:
+#      - db-data:/var/lib/postgresql/data:rw
+#      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
+#       - ./docker/db/data:/var/lib/postgresql/data:rw
+####< doctrine/doctrine-bundle ###
+#
+#volumes:
+###> doctrine/doctrine-bundle ###
+#  db-data:
+##< doctrine/doctrine-bundle ###

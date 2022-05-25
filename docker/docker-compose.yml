@@ -1,0 +1,66 @@
+version: '3'
+
+services:
+  minify_url_nginx:
+    container_name: minify_url_nginx
+    #    image:          nginx:alpine
+    image:          nginx:1.18
+#    restart:        on-failure
+    working_dir:    ${PHP_APP_DIR}
+    volumes:
+      - ../.:${PHP_APP_DIR}
+      - ./nginx/minify-url-api.conf:/etc/nginx/conf.d/minify-url-api.conf:rw
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:rw
+    ports:
+      - ${NGINX_EXPOSED_PORT}:80
+    links:
+      - minify_url_api
+
+  minify_url_api:
+    container_name: minify_url_api
+    build:
+      context: ./php
+      args:
+        - USER_ID=${USER_ID}
+        - GROUP_ID=${GROUP_ID}
+        - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+        - UID_USER=${UID_USER}
+#        - APP_ENV=${APP_ENV}
+#        - APP_SECRET=${APP_SECRET}
+        - XDEBUG_MODE=${XDEBUG_MODE}
+        - XDEBUG_CONFIG=client_host=${XDEBUG_REMOTE_HOST}
+    restart:        on-failure
+    working_dir:    ${PHP_APP_DIR}
+    volumes:
+      - ../.:${PHP_APP_DIR}
+    environment:
+      - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+      - WEB_USER=${WEB_USER}
+      - WEB_GROUP=${WEB_GROUP}
+      - UID_USER=${UID_USER}
+#      - APP_ENV=${APP_ENV}
+      - XDEBUG_CONFIG=remote_host=${XDEBUG_REMOTE_HOST}
+
+  minify_url_redis:
+    container_name: minify_url_redis
+    image:          redis:5.0.5-alpine
+    command: redis-server --requirepass ""
+    ports:
+      - 6379:6379
+
+  minify_url_mysql:
+    container_name: minify_url_mysql
+    image:          mysql
+    command:        --default-authentication-plugin=mysql_native_password
+    restart:        always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${ROOT_PASS}
+      - MYSQL_DATABASE=${DATABASE_NAME}
+    ports:
+      - ${MYSQL_EXPOSED_PORT}:3306
+    volumes:
+      - ./mysql/init/:/docker-entrypoint-initdb.d
+      - ./mysql/datbases:/var/lib/mysql
+
+volumes:
+  nginx-log:
